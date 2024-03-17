@@ -12,13 +12,14 @@
 #define WHT   "\x1B[37m"
 #define RESET "\x1B[0m"
 
-#define PHILOSOPHERS_COUNT 5
+#define PHILOSOPHERS_MAX_COUNT 300
 #define EATING_COUNT 2
 #define QUEUE_CAPACITY 10000
 
 pthread_mutex_t waiter;
-pthread_mutex_t forks[PHILOSOPHERS_COUNT];
-int phils[PHILOSOPHERS_COUNT];
+pthread_mutex_t forks[PHILOSOPHERS_MAX_COUNT];
+int phils[PHILOSOPHERS_MAX_COUNT];
+int phil_count;
 
 struct Queue {
     int front, rear, size;
@@ -26,7 +27,7 @@ struct Queue {
     int* array;
 };
  
-struct Queue* createQueue(unsigned capacity)
+struct Queue* create_queue(unsigned capacity)
 {
     struct Queue* queue = (struct Queue*)malloc(
         sizeof(struct Queue));
@@ -65,8 +66,7 @@ int dequeue(struct Queue* queue)
     if (isEmpty(queue))
         return -1;
     int item = queue->array[queue->front];
-    queue->front = (queue->front + 1)
-                   % queue->capacity;
+    queue->front = (queue->front + 1) % queue->capacity;
     queue->size = queue->size - 1;
     return item;
 }
@@ -86,7 +86,7 @@ int rear(struct Queue* queue)
 }
 
 
-int randInRange(int lower, int upper)
+int rand_in_range(int lower, int upper)
 {
   return (rand() % (upper - lower + 1)) + lower;
 }
@@ -97,7 +97,7 @@ void take_fork(int id, int phil){
     sleep(1);
 }
 
-void leave_fork(int id, int phil){
+void put_fork(int id, int phil){
     printf(CYN "Philosopher %d put down %d fork\n" RESET, phil, id);
     pthread_mutex_unlock(&forks[id]);
     sleep(1);
@@ -115,27 +115,27 @@ void give_forks(int left, int right, int phil){
 }
 
 
-void leave_forks(int left, int right, int phil){
-    leave_fork(left, phil);
-    leave_fork(right, phil);
+void put_forks(int left, int right, int phil){
+    put_fork(left, phil);
+    put_fork(right, phil);
 }
 
 void* philosopher_run(void* arg){
     int* philosopher = (int*) arg;
-    int right = (*philosopher + PHILOSOPHERS_COUNT - 1) % PHILOSOPHERS_COUNT;
-    int left = (*philosopher) % PHILOSOPHERS_COUNT;
+    int right = (*philosopher + phil_count - 1) % phil_count;
+    int left = (*philosopher) % phil_count;
     
     int count = EATING_COUNT;
     while (count > 0) {
         printf(YEL "Philosopher %d is thinking...\n" RESET, *philosopher);
-        sleep(randInRange(1,4));
+        sleep(rand_in_range(1,4));
         printf(RED "Philosopher %d is hungry\n" RESET, *philosopher);
         enqueue(veryHungryQueue, *philosopher);
         give_forks(left, right, *philosopher);
         printf(GRN "Philosopher %d started eating...\n" RESET, *philosopher);
-        sleep(randInRange(2,5));
+        sleep(rand_in_range(2,5));
         printf(GRN "Philosopher %d finished eating.\n" RESET, *philosopher);
-        leave_forks(left, right, *philosopher);
+        put_forks(left, right, *philosopher);
         count--;
     }
     printf(YEL "Philosopher %d is thinking...\n" RESET, *philosopher);
@@ -143,22 +143,27 @@ void* philosopher_run(void* arg){
 }
 
 int main(void) {
-    veryHungryQueue = createQueue(QUEUE_CAPACITY);
+    veryHungryQueue = create_queue(QUEUE_CAPACITY);
+    
+    
+    printf("Enter the number of philosophers: ");
+    scanf ("%d",&phil_count);
+    printf("\n");
     
     pthread_mutex_init(&waiter, NULL);
-    for (int i = 0; i < PHILOSOPHERS_COUNT; i++) {
+    for (int i = 0; i < phil_count; i++) {
         pthread_mutex_init(&forks[i], NULL);
         phils[i] = i;
     }
-    pthread_t philosophers[PHILOSOPHERS_COUNT];
-    for (int i = 0; i < PHILOSOPHERS_COUNT; i++) {
+    pthread_t philosophers[phil_count];
+    for (int i = 0; i < phil_count; i++) {
         pthread_create(&philosophers[i], NULL, philosopher_run, &phils[i]);
     }
     
-    for (int i = 0; i < PHILOSOPHERS_COUNT; i++) {
+    for (int i = 0; i < phil_count; i++) {
         pthread_join(philosophers[i], NULL);
     }
-    for (int i = 0; i < PHILOSOPHERS_COUNT; i++) {
+    for (int i = 0; i < phil_count; i++) {
         pthread_mutex_destroy(&forks[i]);
     }
     return 0;
